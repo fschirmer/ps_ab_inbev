@@ -23,7 +23,7 @@ def my_dag():
 
     # submit_job
 
-    @task.pyspark(conn_id="my_spark_conn")
+    @task.pyspark(conn_id="spark_default")
     def read_data(spark: SparkSession, sc: SparkContext) -> pd.DataFrame:
         df = spark.createDataFrame(
             [

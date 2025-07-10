@@ -331,5 +331,37 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  spark-master:
+    image: bitnami/spark:3.5.0
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8081:8080" # Spark Master Web UI
+      - "7077:7077" # Spark Master default port
+    volumes:
+      - ./data:/opt/bitnami/spark/data # Optional: for sample data if needed
+
+  # Spark Connect Server (will run on a worker)
+  spark-connect:
+    image: bitnami/spark:3.5.0
+    command: bash -c "start-worker.sh spark://spark-master:7077 && /opt/bitnami/spark/bin/spark-shell --master spark://spark-master:7077 --packages org.apache.spark:spark-connect_2.12:3.5.0 --conf spark.driver.port=15002 --conf spark.driver.host=0.0.0.0 --conf spark.sql.catalogImplementation=in-memory"
+    # Alternative for Spark Connect 3.4+:
+    # command: bash -c "/opt/bitnami/spark/bin/spark-shell --master spark://spark-master:7077 --conf spark.connect.grpc.binding.port=15002 --conf spark.connect.grpc.binding.host=0.0.0.0 --packages org.apache.spark:spark-connect_2.12:3.5.0"
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "15002:15002" # Spark Connect default port
+    depends_on:
+      - spark-master
+
 volumes:
   postgres-db-volume:
