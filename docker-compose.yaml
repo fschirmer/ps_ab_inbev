@@ -363,6 +363,8 @@ services:
       - "15002:15002" # Spark Connect default port
     depends_on:
       - spark-master
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/data_lake:/opt/airflow/data_lake
 
 volumes:
   postgres-db-volume:
