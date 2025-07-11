@@ -183,7 +183,7 @@ default_args = {
 }
 
 @dag(
-    dag_id='open_brewery_data_pipeline',
+    dag_id='open_brewery_data_pipeline_erro',
     start_date=datetime(2025, 7, 9, tzinfo=timezone.utc),
     schedule=None, # Rodar manualmente para teste ou defina seu agendamento
     catchup=False,
@@ -215,6 +215,9 @@ def open_brewery_data_pipeline():
             per_page = 200
 
             print(f"Iniciando a busca de dados da API: {base_url}")
+
+            resultado = 1 / 0
+            print(resultado)
 
             while True:
                 params = {"page": page, "per_page": per_page}

@@ -9,3 +9,13 @@ erro por causa de caracteres especiais como karten estado da austria com trema n
 criar função para limpar mas também para notificar de caracteres não tratados
 zipcodes with name
 https://download.geonames.org/export/zip/
+
+configurar google chat para receber notificação
+
+slack
+criar um app from scrath
+https://api.slack.com/apps
+incoming webhooks
+criar conexão no airflow
+
+redis foi adicionado no requirements mas precisa conferir

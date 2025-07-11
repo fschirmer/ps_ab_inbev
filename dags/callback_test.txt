@@ -1,0 +1,1 @@
+Callback executado em: 2025-07-11 18:33:38.432693 para a DAG: open_brewery_data_pipeline
