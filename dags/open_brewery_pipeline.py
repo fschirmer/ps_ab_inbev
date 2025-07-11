@@ -1,5 +1,7 @@
 from airflow.decorators import dag, task
 from datetime import datetime, timezone # Importe datetime e opcionalmente timezone
+# from utils.text_processing import to_ascii_safe_spark_udf
+from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 
 import os # Certifique-se de que 'os' está importado aqui
 # Sua função de busca e salvamento da API
@@ -14,6 +16,7 @@ from pyspark.sql.functions import col, to_timestamp, lit, lower, regexp_replace,
 # Defina o diretório de saída para a camada Bronze
 BRONZE_LAYER_PATH = "/opt/airflow/data_lake/bronze"
 SILVER_LAYER_PATH = "/opt/airflow/data_lake/silver"
+GOLD_LAYER_PATH = "/opt/airflow/data_lake/gold"
 
 @dag(
     dag_id='open_brewery_data_pipeline',
@@ -59,6 +62,14 @@ def open_brewery_data_pipeline():
                         print(f"Nenhum dado retornado na página {page}. Fim da paginação.")
                         break
 
+                    # --- ADICIONE ESTE BLOCO DE DEBUG AQUI ---
+                    for brewery in breweries:
+                        if brewery.get('country') == 'Austria' and 'state_province' in brewery:
+                            print(f"DEBUG: Encontrado registro da Áustria. state_province: '{brewery['state_province']}' (tipo: {type(brewery['state_province'])})")
+                            # Se você quiser inspecionar os bytes brutos (avançado):
+                            # print(f"DEBUG: Bytes de state_province: {brewery['state_province'].encode('utf-8')}")
+                    # --- FIM DO BLOCO DE DEBUG ---
+
                     all_breweries_data.extend(breweries)
                     print(f"Página {page} ({len(breweries)} cervejarias) buscada com sucesso.")
                     page += 1
@@ -94,111 +105,45 @@ def open_brewery_data_pipeline():
 
         return _fetch_and_save_breweries_to_bronze(BRONZE_LAYER_PATH)
 
-    @task.pyspark(conn_id='spark_default')
-    def transform_to_silver_task(bronze_file_path: str):
-        """
-        Lê dados da camada Bronze, transforma e salva na camada Silver em Parquet.
-        """
-        from pyspark.sql import SparkSession  # Importar SparkSession dentro da função PySpark
-
-        # Criar uma sessão Spark
-        spark = SparkSession.builder.appName("BrewerySilverLayer").getOrCreate()
-
-        # 1. Definir o Schema Explícito para os dados da API (opcional, mas boa prática)
-        # Este schema pode precisar de ajustes dependendo da sua observação dos dados brutos.
-        brewery_schema = StructType([
-            StructField("id", StringType(), True),
-            StructField("name", StringType(), True),
-            StructField("brewery_type", StringType(), True),
-            StructField("address_1", StringType(), True),
-            StructField("address_2", StringType(), True),
-            StructField("address_3", StringType(), True),
-            StructField("city", StringType(), True),
-            StructField("state_province", StringType(), True),  # Novo nome para o campo 'state'
-            StructField("state", StringType(), True),  # O campo 'state' original pode ser útil
-            StructField("postal_code", StringType(), True),
-            StructField("country", StringType(), True),
-            StructField("longitude", DoubleType(), True),
-            StructField("latitude", DoubleType(), True),
-            StructField("phone", StringType(), True),
-            StructField("website_url", StringType(), True),
-            StructField("created_at", StringType(), True),  # Vem como string, será convertido
-            StructField("updated_at", StringType(), True),  # Vem como string, será convertido
-            StructField("street", StringType(), True)
-            # Adicione mais campos conforme a estrutura da API
-        ])
-
-        # 2. Leitura dos Dados Brutos (Bronze)
-        # Assumindo que os arquivos JSON estão na pasta BRONZE_LAYER_PATH
-        # O Spark pode ler múltiplos arquivos JSON de uma pasta
-        print(f"Lendo dados da camada Bronze do arquivo: {bronze_file_path}")
-        df_bronze = spark.read.json(bronze_file_path,
-                                    schema=brewery_schema)  # Ou .json(BRONZE_LAYER_PATH, multiLine=True) se o JSON não for JSON Lines
-
-        print("Schema inferido/aplicado para a camada Bronze:")
-        df_bronze.printSchema()
-        print(f"Número de registros lidos da camada Bronze: {df_bronze.count()}")
-
-        # 3. Transformações para a Camada Silver
-        df_silver = df_bronze.select(
-            col("id").alias("brewery_id"),  # Renomear para clareza
-            col("name").alias("brewery_name"),
-            col("brewery_type"),
-            col("address_1").alias("address"),
-            col("city"),
-            col("state_province").alias("state_province_raw"),  # Manter o original
-            col("state").alias("state_region"),
-            # O Airflow 2.x Spark Provider usa `state` para o estado de TI. Renomear para evitar conflito.
-            col("postal_code"),
-            col("country"),
-            col("longitude"),
-            col("latitude"),
-            col("phone"),
-            col("website_url"),
-            to_timestamp(col("created_at"), "yyyy-MM-dd'T'HH:mm:ss.SSSZ").alias("created_at_utc"),
-            # Converter para Timestamp
-            to_timestamp(col("updated_at"), "yyyy-MM-dd'T'HH:mm:ss.SSSZ").alias("updated_at_utc")
-            # Converter para Timestamp
-        )
-
-        # Transformações adicionais e criação de colunas para particionamento
-        df_silver = df_silver.withColumn(
-            "country_partition",
-            # Padroniza para minúsculas e substitui espaços/caracteres especiais por underscore para nomes de pastas
-            lower(regexp_replace(trim(col("country")), "[^a-z0-9_]", "_"))
-        ).withColumn(
-            "state_partition",
-            # Padroniza para minúsculas e substitui espaços/caracteres especiais por underscore
-            lower(regexp_replace(trim(col("state_region")), "[^a-z0-9_]", "_"))
-        )
-        # Tratar casos onde state_region pode ser nulo ou vazio e usar uma string padrão
-        df_silver = df_silver.withColumn(
-            "state_partition",
-            when(col("state_partition").isNull() | (trim(col("state_partition")) == ""),
-                 lit("unknown"))
-            .otherwise(col("state_partition"))
-        )
-        # Tratar casos onde country pode ser nulo ou vazio e usar uma string padrão
-        df_silver = df_silver.withColumn(
-            "country_partition",
-            when(col("country_partition").isNull() | (trim(col("country_partition")) == ""),
-                 lit("unknown"))
-            .otherwise(col("country_partition"))
-        )
-
-        print("Schema da camada Silver após transformações:")
-        df_silver.printSchema()
-
-        # 4. Persistência em Formato Parquet, particionado por país e estado
-        # O modo 'overwrite' substitui a partição/pasta inteira se ela já existir
-        print(f"Escrevendo dados transformados na camada Silver em: {SILVER_LAYER_PATH}")
-        df_silver.write.mode("overwrite").partitionBy("country_partition",
-                                                      "state_partition").parquet(SILVER_LAYER_PATH)
-        print("Dados salvos com sucesso na camada Silver (Parquet, particionado).")
-        spark.stop()  # Parar a sessão Spark
-
     bronze_output_path = fetch_data_to_bronze()
-    transform_to_silver_task_instance = transform_to_silver_task(bronze_file_path=bronze_output_path)
+
+    transform_to_silver_task = SparkSubmitOperator(
+        task_id='transform_to_silver_task',
+        conn_id='spark_default',  # Ou sua conexão dedicada se preferir
+        application='/opt/airflow/dags/scripts/transform_data.py',
+        # O script PySpark a ser executado
+
+        # Onde você passa o seu módulo utils:
+        py_files='/opt/airflow/dags/utils/text_processing.py',  # Caminho para o seu zip de utilitários
+        # Certifique-se de que utils.zip existe em dags/
+        # Ou use '/opt/airflow/dags/utils/text_processing.py'
+        # se for apenas um arquivo .py sem ser um pacote zipado.
+
+        # Argumentos para o seu script PySpark: o caminho do arquivo bronze
+        application_args=[bronze_output_path],
+
+        # Opcional: Configurações Spark adicionais, se necessário
+        # conf={'spark.driver.memory': '2g', 'spark.executor.memory': '4g'},
+
+        # Se você está usando Pandas UDFs, o ambiente Spark deve ter pandas e pyarrow instalados.
+        # Isso é gerenciado pelo Dockerfile.Spark, não por aqui.
+    )
+
+    transform_to_gold_task = SparkSubmitOperator(
+        task_id='transform_to_gold',
+        application='/opt/airflow/dags/scripts/transform_to_gold.py', # Caminho para o seu script Spark
+        conn_id='spark_default',
+        # Configurações adicionais do Spark, se necessário
+        conf={"spark.driver.maxResultSize": "4g"},
+        # Argumentos passados para o script Spark
+        application_args=[
+            '--silver_layer_path', SILVER_LAYER_PATH, # Caminho do diretório da camada Silver
+            '--gold_layer_path', GOLD_LAYER_PATH
+        ],
+    )
+
+    # transform_to_silver_task_instance = transform_to_silver_task(bronze_file_path=bronze_output_path)
+    bronze_output_path >> transform_to_silver_task >> transform_to_gold_task
 
 # Instanciar o DAG
 open_brewery_data_pipeline()
