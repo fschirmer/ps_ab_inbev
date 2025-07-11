@@ -1,0 +1,14 @@
+# /opt/airflow/docker/spark/Dockerfile
+
+# Use uma imagem base do Spark (a mesma que você provavelmente já está usando)
+FROM bitnami/spark:3.5.0
+
+# Instale as bibliotecas Python necessárias para seus UDFs PySpark
+# --no-cache-dir é para evitar o cache de pacotes, economizando espaço na imagem
+RUN pip install --no-cache-dir pandas pyarrow
+
+# Opcional: Se você quiser que o diretório 'dags' seja automaticamente
+# adicionado ao PYTHONPATH dos workers Spark, você pode adicionar esta linha.
+# Isso permitiria importações mais simples como 'from utils.text_processing import ...'
+# sem a necessidade de py_files em alguns cenários, mas py_files ainda é mais explícito.
+# ENV PYTHONPATH="/opt/airflow/dags:$PYTHONPATH"
