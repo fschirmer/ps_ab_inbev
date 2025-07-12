@@ -72,6 +72,8 @@ x-airflow-common:
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+    # AIRFLOW_CONN_SPARK_DEFAULTA: spark://spark-master:7077?extra=%7B%22deploy_mode%22%3A+%22client%22%2C+%22spark_binary%22%3A+%22%2Fopt%2Fbitnami%2Fspark%2Fbin%2Fspark-submit%22%2C+%22conf%22%3A+%7B%22spark.driver.host%22%3A+%220.0.0.0%22%7D%7D
+    # AIRFLOW_CONN_SLACK_WEBHOOKA: slack_webhook://hooks.slack.com?password=T09620ZLE0Y/B0950ET3HRD/W18WfajNDkW6qf79kFS6waXB
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
