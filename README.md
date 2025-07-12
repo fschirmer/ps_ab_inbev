@@ -19,3 +19,30 @@ incoming webhooks
 criar conexão no airflow
 
 redis foi adicionado no requirements mas precisa conferir
+
+conexoa spark_defaul
+
+docker exec -it ps_ab_inbev-airflow-worker-1 airflow connections add spark_default \
+    --conn-type spark \
+    --conn-host spark-master \
+    --conn-port 7077 \
+    --conn-extra '{"deploy_mode": "client", "spark_binary": "/opt/bitnami/spark/bin/spark-submit", "conf": {"spark.driver.host": "0.0.0.0"}}'
+
+docker exec -it ps_ab_inbev-airflow-worker-1 airflow connections add slack_webhook \
+    --conn-type slack_webhook \
+    --conn-host "https://hooks.slack.com/services/" \
+    --conn-schema "https" \
+    --conn-password "xcxcxc" # O token do webhook é geralmente colocado no campo password ou extra
+
+{
+  "timeout": null,
+  "proxy": null
+}
+
+https://hooks.slack.com/services/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
+
+* MELHORIAS
+
+Campos novos entrando como string (Este é importante[breweries_20250712_200101_561102.json](data_lake/bronze/breweries/data/year%3D2025/month%3D07/day%3D12/breweries_20250712_200101_561102.json))
+Otimizar leitura de API
+ZORDER, VACUUM 

@@ -1,2 +1,4 @@
 pandas
 pyarrow
+pyspark
+python-dotenv
