@@ -86,7 +86,7 @@ Este projeto utiliza Docker Compose para configurar um ambiente isolado com todo
 
 1.  **Clone o repositório:**
     ```bash
-    git https://github.com/fschirmer/ps_ab_inbev.git
+    git clone https://github.com/fschirmer/ps_ab_inbev.git
     cd ps_ab_inbev
     ```
 2.  **Crie o arquivo `.env`:**
