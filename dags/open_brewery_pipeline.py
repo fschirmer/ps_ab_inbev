@@ -28,8 +28,7 @@ default_args = {
 )
 def open_brewery_data_pipeline():
     @task
-    def fetch_data_to_bronze_task():  # Renomeei a task para evitar confusão com a função
-        # Agora, chame a função importada, passando o caminho da camada Bronze
+    def fetch_data_to_bronze_task():
         return fetch_and_save_breweries_to_bronze(BRONZE_LAYER_PATH)
 
     bronze_output_path = fetch_data_to_bronze_task()

@@ -4,28 +4,16 @@ import sys
 import os
 from datetime import datetime, timezone
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import regexp_extract, input_file_name, current_timestamp, lit
-from pyspark.sql.types import StringType, StructType, StructField, DoubleType, BooleanType, \
-    TimestampType
-# from delta.tables import DeltaTable  # Removido: Não é mais necessário para MERGE
+from pyspark.sql.functions import regexp_extract, input_file_name
 
-
-# from utils.text_processing import to_ascii_safe_python, to_ascii_safe_spark_udf
-# from queries.silver.breweries.queries_silver_breweries import SILVER_TRANSFORMATION_SQL
-
-# --- ADICIONE ESTAS LINHAS AQUI ---
-# Adiciona o diretório do script atual ao sys.path.
-# O Spark copia todos os py_files para o mesmo diretório onde o application é executado.
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
-    sys.path.insert(0, script_dir) # Use insert(0, ...) para dar prioridade
-# --- FIM DAS LINHAS A SEREM ADICIONADAS ---
+    sys.path.insert(0, script_dir)
 
 from text_processing import to_ascii_safe_python, to_ascii_safe_spark_udf
 from metadata_utils import save_timestamp_to_metadata_file, read_timestamp_from_metadata_file
 from queries_silver_breweries import SILVER_TRANSFORMATION_SQL
 
-# --- Definição de Caminhos ---
 BRONZE_LAYER_PATH = "/opt/airflow/data_lake/bronze"
 SILVER_LAYER_PATH = "/opt/airflow/data_lake/silver"
 
@@ -76,15 +64,25 @@ def run_transform_to_silver():
         spark.udf.register("to_ascii_safe_udf", to_ascii_safe_spark_udf)
         print("UDF 'to_ascii_safe_udf' registrada para uso em SQL.")
 
-        # --- 3. Transformação e Limpeza usando Spark SQL ---
-        # Garante que apenas a última versão de cada ID seja selecionada do lote incremental da Bronze.
         sql_query_silver = SILVER_TRANSFORMATION_SQL.format(
             start_timestamp_for_bronze_read=start_timestamp_for_bronze_read
         )
-        df_silver = spark.sql(sql_query_silver) # Renomeado de df_silver_source para df_silver
+        df_silver = spark.sql(sql_query_silver)
+
         print("------#######################################------------")
+
+        geonames_csv_path = "/opt/airflow/data/geonames-postal-code.csv"
+
+        geonames_df = spark.read.csv(
+            geonames_csv_path,
+            header=True,
+            inferSchema=True,
+            sep=',',
+            encoding='UTF-8'
+        )
+
         print(sql_query_silver)
-        df_isle_of_man = df_silver.filter("country = 'isle of man'")
+        df_isle_of_man = df_silver.filter("country = 'austria'")
         df_isle_of_man.select("id", "country", "bronze_file_timestamp").show(truncate=False)
         print("------#######################################------------")
 
@@ -98,8 +96,6 @@ def run_transform_to_silver():
         df_silver.printSchema()
         df_silver.show(5)
 
-        # --- 4. Gravar em Delta (modo OVERWRITE) ---
-        # Removida a lógica de MERGE INTO e verificação DeltaTable.isDeltaTable
         df_silver.write \
             .format("delta") \
             .mode("overwrite") \
@@ -107,9 +103,6 @@ def run_transform_to_silver():
             .save(silver_output_table_path)
         print(f"Dados Silver salvos em formato Delta (OVERWRITE) em: {silver_output_table_path}")
 
-        # Removido o OPTIMIZE ZORDER BY (id) conforme solicitação de retorno ao overwrite original.
-
-        # Salvar também em formato CSV (opcional, para depuração ou outros usos)
         df_silver.write \
             .format("csv") \
             .mode("overwrite") \
@@ -123,7 +116,6 @@ def run_transform_to_silver():
         spark.stop()
         raise
 
-    # --- 5. Atualizar o arquivo de metadados da camada Silver ---
     sql_query_max_timestamp = f"""
         SELECT
             MAX(bronze_file_timestamp)
@@ -143,6 +135,5 @@ def run_transform_to_silver():
     spark.stop()
 
 
-# Este bloco verifica se o script está sendo executado diretamente pelo spark-submit
 if __name__ == "__main__":
     run_transform_to_silver()

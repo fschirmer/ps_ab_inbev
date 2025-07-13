@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from utils.metadata_utils import save_timestamp_to_metadata_file, read_timestamp_from_metadata_file
 
 
-# dags/scripts/fetch_data_bronze.py (Função principal da camada Bronze)
 def fetch_and_save_breweries_to_bronze(output_dir: str):
     """
     Busca dados de cervejarias da Open Brewery DB API e os salva na camada Bronze.
@@ -32,8 +31,12 @@ def fetch_and_save_breweries_to_bronze(output_dir: str):
         params = {"page": page, "per_page": per_page}
         try:
             response = requests.get(base_url, params=params)
-            response.raise_for_status()  # Levanta um erro para status de resposta HTTP ruins (4xx ou 5xx)
+            response.raise_for_status()
             breweries = response.json()
+
+            # Forçar erro para testar Slack
+            # resultado = 1 / 0
+            # print(resultado)
 
             if not breweries:
                 print(f"Nenhum dado retornado na página {page}. Fim da paginação.")
@@ -45,7 +48,7 @@ def fetch_and_save_breweries_to_bronze(output_dir: str):
 
         except requests.exceptions.RequestException as req_err:
             print(f"Ocorreu um erro na requisição: {req_err}")
-            raise  # Re-raise para que o Airflow marque a tarefa como falha
+            raise
 
     if not all_breweries_data:
         print("Nenhum dado de cervejaria foi recuperado da API.")
@@ -55,11 +58,8 @@ def fetch_and_save_breweries_to_bronze(output_dir: str):
 
     now_utc = datetime.now(timezone.utc)
 
-    # Formata o timestamp completo para o nome do arquivo
-    # Ex: breweries_20250711_221343_092307.json
     timestamp_str = now_utc.strftime("%Y%m%d_%H%M%S_%f")
 
-    # Define o nome do arquivo com o timestamp completo
     file_name = f"breweries_{timestamp_str}.json"
 
     # Define as chaves de partição hierárquicas (ano, mês, dia)
@@ -78,7 +78,6 @@ def fetch_and_save_breweries_to_bronze(output_dir: str):
     # Ex: /opt/airflow/data_lake/bronze/breweries/data/year=2025/month=07/day=11/breweries_20250711_221343_092307.json
     full_output_path = os.path.join(full_output_dir_with_partition, file_name)
 
-    # Cria a estrutura de pastas se ela não existir
     os.makedirs(full_output_dir_with_partition, exist_ok=True)
 
     try:
@@ -88,46 +87,32 @@ def fetch_and_save_breweries_to_bronze(output_dir: str):
         print(f"Dados brutos salvos com sucesso na camada Bronze: {full_output_path}")
         print(f"Total de {len(all_breweries_data)} registros salvos.")
 
-        # --- INÍCIO DA INTEGRAÇÃO DA FUNÇÃO DE METADADOS ---
-        # Define o caminho para o arquivo de metadados da camada Bronze
-        # /opt/airflow/data_lake/bronze/breweries/metadata/last_processed_timestamp.txt
         BRONZE_METADATA_FILE_PATH = os.path.join(
             output_dir, "breweries", "metadata", "last_processed_timestamp.txt"
         )
 
-        # Salva o timestamp do processamento atual como o último processado com sucesso
-        # Usamos o mesmo timestamp que foi para o nome do arquivo para consistência
         save_timestamp_to_metadata_file(timestamp_str, BRONZE_METADATA_FILE_PATH)
-        # --- FIM DA INTEGRAÇÃO DA FUNÇÃO DE METADADOS ---
 
         return full_output_path
     except IOError as e:
         print(f"Erro ao salvar o arquivo JSON: {e}")
-        raise  # Re-raise para que o Airflow marque a tarefa como falha
+        raise
 
 
-# --- Exemplo de Uso (apenas para demonstração, não inclua na DAG diretamente) ---
-if __name__ == "__main__":
-    # Defina o caminho base para seus metadados
-    METADATA_BASE_PATH = "/opt/airflow/data_lake/metadata"
+# if __name__ == "__main__":
+#     # Defina o caminho base para seus metadados
+#     METADATA_BASE_PATH = "/opt/airflow/data_lake/metadata"
+#
+#     # Exemplo para a camada Bronze
+#     bronze_status_file = os.path.join(METADATA_BASE_PATH, "bronze", "open_brewery_api_status.txt")
+#     current_timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")[:-3]
+#
+#     print("\n--- Testando salvar timestamp para Bronze ---")
+#     save_timestamp_to_metadata_file(current_timestamp, bronze_status_file)
+#
+#     # Exemplo para a camada Silver
+#     silver_status_file = os.path.join(METADATA_BASE_PATH, "silver", "breweries_silver_status.txt")
+#     # Em um cenário real, este timestamp viria do último dado processado da Bronze
+#     last_processed_bronze_date = "20250710_235959"  # Exemplo de timestamp de uma partição Bronze
+#     save_timestamp_to_metadata_file(last_processed_bronze_date, silver_status_file)
 
-    # Exemplo para a camada Bronze
-    bronze_status_file = os.path.join(METADATA_BASE_PATH, "bronze", "open_brewery_api_status.txt")
-    current_timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")[:-3]
-
-    print("\n--- Testando salvar timestamp para Bronze ---")
-    save_timestamp_to_metadata_file(current_timestamp, bronze_status_file)
-
-    # Exemplo para a camada Silver
-    silver_status_file = os.path.join(METADATA_BASE_PATH, "silver", "breweries_silver_status.txt")
-    # Em um cenário real, este timestamp viria do último dado processado da Bronze
-    last_processed_bronze_date = "20250710_235959"  # Exemplo de timestamp de uma partição Bronze
-    save_timestamp_to_metadata_file(last_processed_bronze_date, silver_status_file)
-
-    # Para ler o timestamp (exemplo):
-    # try:
-    #     with open(bronze_status_file, 'r', encoding='utf-8') as f:
-    #         last_ts = f.read().strip()
-    #     print(f"\nÚltimo timestamp processado (Bronze): {last_ts}")
-    # except FileNotFoundError:
-    #     print("\nArquivo de status da Bronze não encontrado. Primeira execução?")
