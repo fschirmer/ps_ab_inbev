@@ -1,12 +1,22 @@
 SILVER_TRANSFORMATION_SQL = """
-    WITH bronze_incremental_latest AS (
+    WITH latest_overall_timestamp_cte AS (
         SELECT
-            *,
-            ROW_NUMBER() OVER (PARTITION BY id ORDER BY bronze_file_timestamp DESC) as rn
+            MAX(bronze_file_timestamp) AS max_timestamp
         FROM
             bronze_raw_view
         WHERE
             bronze_file_timestamp > '{start_timestamp_for_bronze_read}'
+    ),
+    bronze_snapshot AS (
+        SELECT
+            b.*,
+            ROW_NUMBER() OVER (PARTITION BY b.id ORDER BY b.bronze_file_timestamp DESC) as rn
+        FROM
+            bronze_raw_view b
+        INNER JOIN
+            latest_overall_timestamp_cte l
+        ON
+            b.bronze_file_timestamp = l.max_timestamp
     )
     SELECT
         TRIM(CAST(id AS STRING)) AS id,
@@ -18,16 +28,15 @@ SILVER_TRANSFORMATION_SQL = """
         LOWER(TRIM(CAST(city AS STRING))) AS city,
         LOWER(TRIM(CAST(state AS STRING))) AS state,
         LOWER(TRIM(CAST(postal_code AS STRING))) AS postal_code,
-        LOWER(TRIM(CAST(country AS STRING))) AS country, -- Manter como 'country'
+        LOWER(TRIM(CAST(country AS STRING))) AS country,
         CAST(longitude AS DOUBLE) AS longitude,
         CAST(latitude AS DOUBLE) AS latitude,
         LOWER(TRIM(CAST(phone AS STRING))) AS phone,
         LOWER(TRIM(CAST(website_url AS STRING))) AS website_url,
         COALESCE(NULLIF(LOWER(TRIM(CAST(state_province AS STRING))), ''), 'unknown') AS state_province,
         bronze_file_timestamp
-        -- is_deleted, created_at, updated_at removidos
     FROM
-        bronze_incremental_latest
+        bronze_snapshot
     WHERE
-        rn = 1 -- Seleciona apenas a última versão de cada ID do lote incremental
+        rn = 1
 """

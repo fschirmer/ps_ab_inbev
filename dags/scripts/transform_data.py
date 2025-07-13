@@ -9,22 +9,20 @@ from pyspark.sql.types import StringType, StructType, StructField, DoubleType, B
     TimestampType
 # from delta.tables import DeltaTable  # Removido: Não é mais necessário para MERGE
 
-# Importe sua UDF de text_processing
-try:
-    from utilstext_processing import to_ascii_safe
-except ImportError:
-    print(
-        "Aviso: 'text_processing.py' ou a função 'to_ascii_safe' não encontrada. Usando placeholder.")
 
+# from utils.text_processing import to_ascii_safe_python, to_ascii_safe_spark_udf
+# from queries.silver.breweries.queries_silver_breweries import SILVER_TRANSFORMATION_SQL
 
-    def to_ascii_safe(text):
-        if text is None:
-            return None
-        return ''.join(char for char in text if ord(char) < 128).lower().replace(" ", "_")
-print("------###########$$$$$$$$-----------")
-print("------###########$$$$$$$$-----------")
-print("------###########$$$$$$$$-----------")
-from queries.silver.breweries.queries_silver_breweries import SILVER_TRANSFORMATION_SQL
+# --- ADICIONE ESTAS LINHAS AQUI ---
+# Adiciona o diretório do script atual ao sys.path.
+# O Spark copia todos os py_files para o mesmo diretório onde o application é executado.
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir) # Use insert(0, ...) para dar prioridade
+# --- FIM DAS LINHAS A SEREM ADICIONADAS ---
+
+from text_processing import to_ascii_safe_python, to_ascii_safe_spark_udf
+from queries_silver_breweries import SILVER_TRANSFORMATION_SQL
 
 # --- Definição de Caminhos ---
 BRONZE_LAYER_PATH = "/opt/airflow/data_lake/bronze"
@@ -113,48 +111,20 @@ def run_transform_to_silver():
         df_bronze_with_timestamp.createOrReplaceTempView("bronze_raw_view")
         print("DataFrame 'bronze_raw_view' registrado como view temporária.")
 
-        spark.udf.register("to_ascii_safe_udf", to_ascii_safe, StringType())
+        spark.udf.register("to_ascii_safe_udf", to_ascii_safe_spark_udf)
         print("UDF 'to_ascii_safe_udf' registrada para uso em SQL.")
 
         # --- 3. Transformação e Limpeza usando Spark SQL ---
         # Garante que apenas a última versão de cada ID seja selecionada do lote incremental da Bronze.
-        sql_query_silver = f"""
-            WITH bronze_incremental_latest AS (
-                SELECT
-                    *,
-                    ROW_NUMBER() OVER (PARTITION BY id ORDER BY bronze_file_timestamp DESC) as rn
-                FROM
-                    bronze_raw_view
-                WHERE
-                    bronze_file_timestamp > '{start_timestamp_for_bronze_read}'
-            )
-            SELECT
-                TRIM(CAST(id AS STRING)) AS id,
-                LOWER(TRIM(CAST(name AS STRING))) AS name,
-                LOWER(TRIM(CAST(brewery_type AS STRING))) AS brewery_type,
-                LOWER(TRIM(CAST(street AS STRING))) AS street,
-                LOWER(TRIM(CAST(address_2 AS STRING))) AS address_2,
-                LOWER(TRIM(CAST(address_3 AS STRING))) AS address_3,
-                LOWER(TRIM(CAST(city AS STRING))) AS city,
-                LOWER(TRIM(CAST(state AS STRING))) AS state,
-                LOWER(TRIM(CAST(postal_code AS STRING))) AS postal_code,
-                LOWER(TRIM(CAST(country AS STRING))) AS country, -- Manter como 'country'
-                CAST(longitude AS DOUBLE) AS longitude,
-                CAST(latitude AS DOUBLE) AS latitude,
-                LOWER(TRIM(CAST(phone AS STRING))) AS phone,
-                LOWER(TRIM(CAST(website_url AS STRING))) AS website_url,
-                COALESCE(NULLIF(LOWER(TRIM(CAST(state_province AS STRING))), ''), 'unknown') AS state_province,
-                bronze_file_timestamp
-                -- is_deleted, created_at, updated_at removidos
-            FROM
-                bronze_incremental_latest
-            WHERE
-                rn = 1 -- Seleciona apenas a última versão de cada ID do lote incremental
-        """
         sql_query_silver = SILVER_TRANSFORMATION_SQL.format(
             start_timestamp_for_bronze_read=start_timestamp_for_bronze_read
         )
         df_silver = spark.sql(sql_query_silver) # Renomeado de df_silver_source para df_silver
+        print("------#######################################------------")
+        print(sql_query_silver)
+        df_isle_of_man = df_silver.filter("country = 'isle of man'")
+        df_isle_of_man.select("id", "country", "bronze_file_timestamp").show(truncate=False)
+        print("------#######################################------------")
 
         if df_silver.count() == 0:
             print(
