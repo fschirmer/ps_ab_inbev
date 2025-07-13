@@ -38,7 +38,7 @@ def open_brewery_data_pipeline():
         task_id='transform_to_silver_task',
         conn_id='spark_default',
         application='/opt/airflow/dags/scripts/transform_data.py',
-        py_files='/opt/airflow/dags/utils/text_processing.py',
+        py_files='/opt/airflow/dags/utils.zip,/opt/airflow/dags/queries.zip',
         application_args=[bronze_output_path],
         packages='io.delta:delta-spark_2.12:3.0.0',
     )
