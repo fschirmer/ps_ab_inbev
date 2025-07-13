@@ -4,7 +4,7 @@ https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index
 2. criar o Docker file
 3. criar o requirements
 
-encontrado espaço em país
+encontrado espaço em país (united states)
 erro por causa de caracteres especiais como karten estado da austria com trema nmo segundo a
 criar função para limpar mas também para notificar de caracteres não tratados
 zipcodes with name
@@ -44,5 +44,11 @@ https://hooks.slack.com/services/T09620ZLE0Y/B0950ET3HRD/W18WfajNDkW6qf79kFS6waX
 * MELHORIAS
 
 Campos novos entrando como string (Este é importante[breweries_20250712_200101_561102.json](data_lake/bronze/breweries/data/year%3D2025/month%3D07/day%3D12/breweries_20250712_200101_561102.json))
+limpeza de dados
 Otimizar leitura de API
 ZORDER, VACUUM 
+
+download de arquivos para limpeza dos dados
+
+eu alterei apenas dois dados de localidade porque não sei o quão confiável é o dado, 
+então apenas demonstrei, ams entendo que a camada silver deve ter o dado tratado para consumo

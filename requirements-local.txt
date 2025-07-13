@@ -2,3 +2,4 @@ pandas
 pyarrow
 pyspark
 python-dotenv
+pandasql

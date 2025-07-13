@@ -1,0 +1,2 @@
+https://public.opendatasoft.com/explore/dataset/geonames-postal-code/export/
+https://public.opendatasoft.com/explore/dataset/countries-codes/export/
