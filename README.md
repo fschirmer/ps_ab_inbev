@@ -96,7 +96,8 @@ Este projeto utiliza Docker Compose para configurar um ambiente isolado com todo
     Você pode ajustar `AIRFLOW_UID` (para evitar problemas de permissão de arquivo), `_AIRFLOW_WWW_USER_USERNAME`, `_AIRFLOW_WWW_USER_PASSWORD`, etc.
 3. **Inicie o ambiente Docker Compose:**
     ```bash
-    docker-compose up -d
+    docker compose build --no-cache 
+    docker compose up -d
     ```
     Na primeira execução, isso pode levar alguns minutos, pois o Docker fará o download das imagens e construirá as customizadas.
 4. **Acesse a UI do Airflow:**
