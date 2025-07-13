@@ -19,7 +19,7 @@ default_args = {
 }
 
 @dag(
-    dag_id='open_brewery_data_pipeline',
+    dag_id='open_brewery_data_pipeline_erro',
     start_date=datetime(2025, 7, 9, tzinfo=timezone.utc),
     schedule=None,
     catchup=False,
