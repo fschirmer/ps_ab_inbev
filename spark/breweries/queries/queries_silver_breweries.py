@@ -26,9 +26,19 @@ SILVER_TRANSFORMATION_SQL = """
         LOWER(TRIM(CAST(address_2 AS STRING))) AS address_2,
         LOWER(TRIM(CAST(address_3 AS STRING))) AS address_3,
         LOWER(TRIM(CAST(city AS STRING))) AS city,
-        LOWER(TRIM(CAST(state AS STRING))) AS state,
+        COALESCE(NULLIF(LOWER(TRIM(CAST(state AS STRING))), ''), 'unknown') AS state,
         LOWER(TRIM(CAST(postal_code AS STRING))) AS postal_code,
-        LOWER(TRIM(CAST(country AS STRING))) AS country,
+        -- Início da limpeza para a coluna de partição 'country' com tratamento para vazio/nulo
+        REGEXP_REPLACE(
+            REGEXP_REPLACE(
+                COALESCE(NULLIF(LOWER(TRIM(CAST(country AS STRING))), ''), 'unknown'), -- Adicionado COALESCE e NULLIF aqui
+                '[^a-z0-9]+',
+                '_'
+            ),
+            '_+',
+            '_'
+        ) AS country,
+        -- Fim da limpeza para a coluna de partição 'country'
         CAST(longitude AS DOUBLE) AS longitude,
         CAST(latitude AS DOUBLE) AS latitude,
         LOWER(TRIM(CAST(phone AS STRING))) AS phone,

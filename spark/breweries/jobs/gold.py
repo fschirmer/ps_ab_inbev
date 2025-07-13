@@ -5,6 +5,8 @@ import os
 from datetime import datetime, timezone
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import current_timestamp # Mantemos current_timestamp para as colunas created_at/updated_at
+from metadata_utils import save_timestamp_to_metadata_file, read_timestamp_from_metadata_file
+from queries_gold_breweries import GOLD_TRANSFORMATION_SQL
 
 # --- Definição de Caminhos ---
 # Estes são os caminhos base para as camadas no Data Lake.
@@ -21,61 +23,12 @@ SILVER_METADATA_FILE_PATH = os.path.join(
 
 # Caminho para a raiz da tabela Delta da camada Gold
 GOLD_TABLE_ROOT_PATH = os.path.join(GOLD_LAYER_PATH, "breweries", "data")
-GOLD_TABLE_ROOT_PATH2 = os.path.join(GOLD_LAYER_PATH, "breweries", "data_json")
+GOLD_TABLE_ROOT_PATH2 = os.path.join(GOLD_LAYER_PATH, "breweries", "data_csv")
 # Caminho para a pasta de metadados da camada Gold (para gravar o último timestamp processado)
 GOLD_METADATA_FILE_PATH = os.path.join(
     GOLD_LAYER_PATH, "breweries", "metadata", "last_processed_timestamp.txt"
 )
 
-
-def save_timestamp_to_metadata_file(timestamp_str: str, file_path: str):
-    """
-    Salva um timestamp (como string) em um arquivo de metadados.
-
-    Cria o diretório pai do arquivo se ele não existir.
-
-    Args:
-        timestamp_str (str): O timestamp a ser salvo (ex: "20250711_221343_092307").
-        file_path (str): O caminho completo para o arquivo de metadados.
-
-    Returns:
-        bool: True se o timestamp foi salvo com sucesso, False caso contrário.
-    """
-    dir_name = os.path.dirname(file_path)
-    if dir_name:
-        os.makedirs(dir_name, exist_ok=True)
-        print(f"Diretório '{dir_name}' garantido/criado para metadados.")
-
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(timestamp_str)
-        print(f"Timestamp '{timestamp_str}' salvo com sucesso em '{file_path}'.")
-        return True
-    except IOError as e:
-        print(f"Erro ao salvar o timestamp no arquivo '{file_path}': {e}")
-        return False
-
-def read_timestamp_from_metadata_file(file_path: str) -> str | None:
-    """
-    Lê um timestamp de um arquivo de metadados.
-
-    Args:
-        file_path (str): O caminho completo para o arquivo de metadados.
-
-    Returns:
-        str | None: O timestamp lido como string, ou None se o arquivo não existir.
-    """
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            timestamp = f.read().strip()
-            print(f"Timestamp lido de '{file_path}': '{timestamp}'.")
-            return timestamp
-    except FileNotFoundError:
-        print(f"Arquivo de metadados '{file_path}' não encontrado. Assumindo primeiro processamento.")
-        return None
-    except IOError as e:
-        print(f"Erro ao ler o timestamp do arquivo '{file_path}': {e}")
-        return None
 
 def run_transform_to_gold():
     """
@@ -136,6 +89,8 @@ def run_transform_to_gold():
                 country,
                 brewery_type
         """
+
+        sql_query_gold = GOLD_TRANSFORMATION_SQL
         df_gold = spark.sql(sql_query_gold)
 
         if df_gold.count() == 0:
