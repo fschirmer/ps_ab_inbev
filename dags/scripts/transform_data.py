@@ -11,7 +11,7 @@ from pyspark.sql.types import StringType, StructType, StructField, DoubleType, B
 
 # Importe sua UDF de text_processing
 try:
-    from text_processing import to_ascii_safe
+    from utilstext_processing import to_ascii_safe
 except ImportError:
     print(
         "Aviso: 'text_processing.py' ou a função 'to_ascii_safe' não encontrada. Usando placeholder.")
@@ -21,6 +21,10 @@ except ImportError:
         if text is None:
             return None
         return ''.join(char for char in text if ord(char) < 128).lower().replace(" ", "_")
+print("------###########$$$$$$$$-----------")
+print("------###########$$$$$$$$-----------")
+print("------###########$$$$$$$$-----------")
+from queries.silver.breweries.queries_silver_breweries import SILVER_TRANSFORMATION_SQL
 
 # --- Definição de Caminhos ---
 BRONZE_LAYER_PATH = "/opt/airflow/data_lake/bronze"
@@ -147,6 +151,9 @@ def run_transform_to_silver():
             WHERE
                 rn = 1 -- Seleciona apenas a última versão de cada ID do lote incremental
         """
+        sql_query_silver = SILVER_TRANSFORMATION_SQL.format(
+            start_timestamp_for_bronze_read=start_timestamp_for_bronze_read
+        )
         df_silver = spark.sql(sql_query_silver) # Renomeado de df_silver_source para df_silver
 
         if df_silver.count() == 0:
