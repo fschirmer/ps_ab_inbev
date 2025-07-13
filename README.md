@@ -52,3 +52,13 @@ download de arquivos para limpeza dos dados
 
 eu alterei apenas dois dados de localidade porque não sei o quão confiável é o dado, 
 então apenas demonstrei, ams entendo que a camada silver deve ter o dado tratado para consumo
+
+
+1. Limpar dados (pend)
+2. Função ler texto fora (ok)
+3. Queries em arquivos (ok)
+4. Documentacao
+5. Desenho da arquitetura 
+6. Remover jobs Spark da pasta Dags (ok)
+7. Caracteres permitidos para partição
+8. Colunas novas
