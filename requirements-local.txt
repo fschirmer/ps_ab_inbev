@@ -3,3 +3,4 @@ pyarrow
 pyspark
 python-dotenv
 pandasql
+cryptography

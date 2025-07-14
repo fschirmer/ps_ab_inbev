@@ -92,6 +92,8 @@ Este projeto utiliza Docker Compose para configurar um ambiente isolado com todo
 2.  **Crie o arquivo `.env`:**
     ```bash
     echo -e "AIRFLOW_UID=$(id -u)" > .env
+    # Gere sua chave Fernet com Python: from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())
+    echo "FERNET_KEY=SUA_CHAVE_FERNET_GERADA_AQUI" >> .env
     ```
     Você pode ajustar `AIRFLOW_UID` (para evitar problemas de permissão de arquivo), `_AIRFLOW_WWW_USER_USERNAME`, `_AIRFLOW_WWW_USER_PASSWORD`, etc.
 3. **Inicie o ambiente Docker Compose:**
