@@ -123,10 +123,10 @@ Este projeto utiliza Docker Compose para configurar um ambiente isolado com todo
 6. **Notificações:**
     A dag está configurada para enviar notificações via Slack caso ocorra um erro.
 
-   1. **Conexão Slack Webhook (`slack_webhook`)**:
+   1. **Canal do Slack:**
          Siga os passos do link abaixo para criar um canal e habilitar um app.
          https://api.slack.com/messaging/webhooks
-   2. **Conexão Slack Webhook (`slack_webhook`)**:
+   2. **Conexão Slack Webhook (`slack_webhook`):**
         Esta conexão é usada para enviar notificações do pipeline para um canal do Slack.
 
         ```bash
@@ -136,7 +136,11 @@ Este projeto utiliza Docker Compose para configurar um ambiente isolado com todo
             --conn-schema "https" \
             --conn-password "xcxcxc" # O token do webhook é geralmente colocado no campo password ou extra. SUBSTITUA "xcxcxc" PELO SEU TOKEN REAL DO SLACK!
         ```
+    Observações Importantes sobre as DAGs:
 
+   * **`open_brewery_data_pipeline`**: Esta DAG é o pipeline principal que processa os dados das cervejarias **sem forçar erros**.
+   * **`open_brewery_data_pipeline_erro`**: Esta DAG foi criada especificamente para **demonstrar o funcionamento das notificações de erro via Slack**. Ela contém uma lógica para **forçar um erro propositalmente** em uma de suas tarefas, o que é um comportamento esperado. Ao executá-la, você deverá receber uma notificação no canal do Slack configurado, confirmando que a integração está correta e que você receberá alertas em caso de falhas reais nos seus pipelines.
+   * ![slack_notification.png](docs/images/slack_notification.png)
 ---
 
 ## Executando o Pipeline
@@ -145,6 +149,8 @@ O pipeline `open_brewery_data_pipeline` deve aparecer na UI do Airflow. Ele est�
 
 1.  **Despausar a DAG:** Na UI do Airflow, localize `open_brewery_data_pipeline` e ative o botão de "Toggle" para despausá-la.
 2.  **Disparar a DAG:** Clique no botão "Trigger DAG" (ícone de play) para iniciar uma nova execução.
+
+    ![airflow_success.png](docs/images/airflow_success.png)
 
 ---
 
@@ -171,6 +177,8 @@ O pipeline `open_brewery_data_pipeline` deve aparecer na UI do Airflow. Ele est�
 * **Queries:** `spark/breweries/queries/queries_gold_breweries.py`
 * **Transformação:** Agrega e sumariza os dados da camada Silver para criar visões de alto nível, ideais para análise e BI.
 * **Armazenamento:** Salva os dados agregados como tabelas Delta em `data_lake/gold/breweries/`.
+
+![data_lake_structure.png](docs/images/data_lake_structure.png)
 
 ### Links de Apoio
 
